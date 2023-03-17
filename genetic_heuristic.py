@@ -1,24 +1,11 @@
 import random
 import json
+from DataStructures import PlaneMatrix, ToroidalMatrix, CylindricalMatrix, SphericalMatrix, MobiusBandMatrix, \
+    KleinBottleMatrix, ProjectivePlaneMatrix
 # import sys
 
 size_x = 20
 size_y = 20
-
-
-class CircularList:
-    def __init__(self, data):
-        self.data = data
-
-    def __getitem__(self, key):
-        return self.data[key % len(self.data)]
-
-    def __setitem__(self, key, value):
-        self.data[key % len(self.data)] = value
-
-    def __iter__(self):
-        for key in range(len(self.data)):
-            yield self[key]
 
 
 def start_point_generate():
@@ -118,6 +105,36 @@ def general_heuristic_function(x, y, f_topology, f_chromosome, f_finish):
     elif f_topology == 'T²':
         return gamma * (((min(abs(f_finish[0] - x), size_x - abs(f_finish[0] - x))) ** alpha +
                          (min(abs(f_finish[1] - y), size_y - abs(f_finish[1] - y))) ** alpha) ** beta)
+    elif f_topology == 'S²':
+        return gamma * min(
+            (abs(f_finish[0] - x) ** alpha + abs(f_finish[1] - y) ** alpha) ** beta,
+            (abs(f_finish[1] - x) ** alpha + (f_finish[0] + y) ** alpha) ** beta,
+            (abs(f_finish[0] - y) ** alpha + (f_finish[1] + x) ** alpha) ** beta,
+            ((2 * size_x - 1 - f_finish[0] - y) ** alpha + abs(f_finish[1] - x) ** alpha) ** beta,
+            ((2 * size_y - 1 - f_finish[1] - x) ** alpha + abs(f_finish[0] - y) ** alpha) ** beta
+        )
+    elif f_topology == 'ℝ¹×S¹':
+        return gamma * (((min(abs(f_finish[0] - x), size_x - abs(f_finish[0] - x))) ** alpha +
+                         abs(f_finish[1] - y) ** alpha) ** beta)
+    elif f_topology == 'M²':
+        return gamma * min(
+            (abs(f_finish[0] - x) ** alpha + abs(f_finish[1] - y) ** alpha) ** beta,
+            ((size_x - abs(f_finish[0] - x)) ** alpha + abs(size_y - 1 - f_finish[1] - y) ** alpha) ** beta
+        )
+    elif f_topology == 'K²':
+        return gamma * min(
+            (abs(f_finish[0] - x) ** alpha + abs(f_finish[1] - y) ** alpha) ** beta,
+            ((size_x - abs(f_finish[0] - x)) ** alpha + abs(size_y - 1 - f_finish[1] - y) ** alpha) ** beta,
+            (abs(f_finish[0] - x) ** alpha + (min(abs(f_finish[1] - y), size_y - abs(f_finish[1] - y))) ** alpha) ** beta
+
+        )
+    elif f_topology == 'ℝP²':
+        return gamma * min(
+            (abs(f_finish[0] - x) ** alpha + abs(f_finish[1] - y) ** alpha) ** beta,
+            ((size_x - abs(f_finish[0] - x)) ** alpha + abs(size_y - 1 - f_finish[1] - y) ** alpha) ** beta,
+            (abs(size_x - 1 - f_finish[0] - x) ** alpha + (size_y - abs(f_finish[1] - y)) ** alpha) ** beta
+            # (abs(size_x - 1 - finish[0] - x) ** alpha + abs(size_y - 1 - finish[1] - y) ** alpha) ** beta
+        )
 
 
 class Node:
@@ -146,14 +163,28 @@ class Solution:
         self.start = f_start
         self.finish = f_finish
         self.checked = float('inf')
-        self.nodes = CircularList(
-            [CircularList([Node(f_i, f_j, f_topology=self.topology, f_chromosome=self.chromosome, f_finish=self.finish)
-                           for f_j in range(size_y)]) for f_i in range(size_x)])
-        self.nodes[self.start[0]][self.start[1]].g = 0
+        nodes = [[Node(f_i, f_j, f_topology=topology, f_chromosome=self.chromosome, f_finish=self.finish)
+                  for f_j in range(size_y)] for f_i in range(size_x)]
+        match topology:
+            case 'ℝ²':
+                self.nodes = PlaneMatrix(nodes)
+            case 'T²':
+                self.nodes = ToroidalMatrix(nodes)
+            case 'S²':
+                self.nodes = SphericalMatrix(nodes)
+            case 'ℝ¹×S¹':
+                self.nodes = CylindricalMatrix(nodes)
+            case 'M²':
+                self.nodes = MobiusBandMatrix(nodes)
+            case 'K²':
+                self.nodes = KleinBottleMatrix(nodes)
+            case 'ℝP²':
+                self.nodes = ProjectivePlaneMatrix(nodes)
+
+        self.nodes[self.start].g = 0
 
     def next_node(self):
-        temp = [min(idx, key=lambda n: (n.f() if not n.visited else float('inf'))) for idx in self.nodes]
-        return min(temp, key=lambda n: (n.f() if not n.visited else float('inf')))
+        return min(self.nodes, key=lambda n: (n.f() if not n.visited else float('inf')))
 
     def open(self):
         while True:
@@ -161,28 +192,29 @@ class Solution:
             cur = self.next_node()
             cur.visited = True
             # Calculate Top
-            if not ((cur.y == 0 and self.topology == 'ℝ²') or self.h_walls[cur.x][cur.y]):
-                if self.nodes[cur.x][cur.y - 1].g > cur.g + 1:
-                    self.nodes[cur.x][cur.y - 1].g = cur.g + 1
-                    self.nodes[cur.x][cur.y - 1].prev = cur
+            if not ((cur.y == 0 and self.topology in ['ℝ²', 'ℝ¹×S¹', 'M²']) or self.h_walls[cur.x][cur.y]):
+                if self.nodes[(cur.x, cur.y - 1)].g > cur.g + 1:
+                    self.nodes[(cur.x, cur.y - 1)].g = cur.g + 1
+                    self.nodes[(cur.x, cur.y - 1)].prev = cur
 
             # Calculate Bottom
-            if not ((cur.y == size_y - 1 and self.topology == 'ℝ²') or self.h_walls[cur.x][cur.y + 1]):
-                if self.nodes[cur.x][cur.y + 1].g > cur.g + 1:
-                    self.nodes[cur.x][cur.y + 1].g = cur.g + 1
-                    self.nodes[cur.x][cur.y + 1].prev = cur
+            if not ((cur.y == size_y - 1 and self.topology in ['ℝ²', 'ℝ¹×S¹', 'M²'])
+                    or self.h_walls[cur.x][cur.y + 1]):
+                if self.nodes[(cur.x, cur.y + 1)].g > cur.g + 1:
+                    self.nodes[(cur.x, cur.y + 1)].g = cur.g + 1
+                    self.nodes[(cur.x, cur.y + 1)].prev = cur
 
             # Calculate Left
             if not ((cur.x == 0 and self.topology == 'ℝ²') or self.v_walls[cur.x][cur.y]):
-                if self.nodes[cur.x - 1][cur.y].g > cur.g + 1:
-                    self.nodes[cur.x - 1][cur.y].g = cur.g + 1
-                    self.nodes[cur.x - 1][cur.y].prev = cur
+                if self.nodes[(cur.x - 1, cur.y)].g > cur.g + 1:
+                    self.nodes[(cur.x - 1, cur.y)].g = cur.g + 1
+                    self.nodes[(cur.x - 1, cur.y)].prev = cur
 
             # Calculate Right
             if not ((cur.x == size_x - 1 and self.topology == 'ℝ²') or self.v_walls[cur.x + 1][cur.y]):
-                if self.nodes[cur.x + 1][cur.y].g > cur.g + 1:
-                    self.nodes[cur.x + 1][cur.y].g = cur.g + 1
-                    self.nodes[cur.x + 1][cur.y].prev = cur
+                if self.nodes[(cur.x + 1, cur.y)].g > cur.g + 1:
+                    self.nodes[(cur.x + 1, cur.y)].g = cur.g + 1
+                    self.nodes[(cur.x + 1, cur.y)].prev = cur
 
             cur.current = False
             cur = self.next_node()
@@ -191,7 +223,7 @@ class Solution:
                 while cur.g != 0:
                     cur.path = True
                     cur = cur.prev
-                self.checked = sum([1 if self.nodes[f_i][f_j].visited else 0 for f_i in range(size_x)
+                self.checked = sum([1 if self.nodes[(f_i, f_j)].visited else 0 for f_i in range(size_x)
                                     for f_j in range(size_y)])
                 break
             # ======================================================
@@ -242,8 +274,9 @@ if __name__ == '__main__':
     N = 64
     EPOCH = 20
     MAZE = 50
-    topology = 'ℝ²'
+    # topology = 'ℝ²'
     # topology = 'T²'
+    topology = 'ℝP²'
     avg_manhattan, avg_euclidean, avg_squared_euclidean, avg_custom = [], [], [], []
     for maze in range(1, MAZE + 1):
         print(f'maze #{maze}:', flush=True)

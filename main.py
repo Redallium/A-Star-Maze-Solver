@@ -1,8 +1,11 @@
 from tkinter import *
 from tkinter.ttk import OptionMenu
 from tkinter.filedialog import asksaveasfilename, askopenfile
-import json
 import random
+import json
+from DataStructures import PlaneMatrix, ToroidalMatrix, CylindricalMatrix, SphericalMatrix, MobiusBandMatrix, \
+    KleinBottleMatrix, ProjectivePlaneMatrix
+
 
 size_x = 20
 size_y = 20
@@ -18,21 +21,6 @@ finish = (size_x - 1, size_y - 1)
 inf = float('inf')
 
 
-class CircularList:
-    def __init__(self, data):
-        self.data = data
-
-    def __getitem__(self, key):
-        return self.data[key % len(self.data)]
-
-    def __setitem__(self, key, value):
-        self.data[key % len(self.data)] = value
-
-    def __iter__(self):
-        for i in range(len(self.data)):
-            yield self[i]
-
-
 def general_heuristic_function(x, y, topology='ℝ²', heuristic_chromosome=(1, 1, 1)):
     alpha, beta, gamma = heuristic_chromosome
     if topology == 'ℝ²':
@@ -41,15 +29,35 @@ def general_heuristic_function(x, y, topology='ℝ²', heuristic_chromosome=(1, 
         return gamma * (((min(abs(finish[0] - x), size_x - abs(finish[0] - x))) ** alpha +
                          (min(abs(finish[1] - y), size_y - abs(finish[1] - y))) ** alpha) ** beta)
     elif topology == 'S²':
-        pass
+        return gamma * min(
+            (abs(finish[0] - x) ** alpha + abs(finish[1] - y) ** alpha) ** beta,
+            (abs(finish[1] - x) ** alpha + (finish[0] + y) ** alpha) ** beta,
+            (abs(finish[0] - y) ** alpha + (finish[1] + x) ** alpha) ** beta,
+            ((2 * size_x - 1 - finish[0] - y) ** alpha + abs(finish[1] - x) ** alpha) ** beta,
+            ((2 * size_y - 1 - finish[1] - x) ** alpha + abs(finish[0] - y) ** alpha) ** beta
+        )
     elif topology == 'ℝ¹×S¹':
-        pass
+        return gamma * (((min(abs(finish[0] - x), size_x - abs(finish[0] - x))) ** alpha +
+                         abs(finish[1] - y) ** alpha) ** beta)
     elif topology == 'M²':
-        pass
+        return gamma * min(
+            (abs(finish[0] - x) ** alpha + abs(finish[1] - y) ** alpha) ** beta,
+            ((size_x - abs(finish[0] - x)) ** alpha + abs(size_y - 1 - finish[1] - y) ** alpha) ** beta
+        )
     elif topology == 'K²':
-        pass
+        return gamma * min(
+            (abs(finish[0] - x) ** alpha + abs(finish[1] - y) ** alpha) ** beta,
+            ((size_x - abs(finish[0] - x)) ** alpha + abs(size_y - 1 - finish[1] - y) ** alpha) ** beta,
+            (abs(finish[0] - x) ** alpha + (min(abs(finish[1] - y), size_y - abs(finish[1] - y))) ** alpha) ** beta
+
+        )
     elif topology == 'ℝP²':
-        pass
+        return gamma * min(
+            (abs(finish[0] - x) ** alpha + abs(finish[1] - y) ** alpha) ** beta,
+            ((size_x - abs(finish[0] - x)) ** alpha + abs(size_y - 1 - finish[1] - y) ** alpha) ** beta,
+            (abs(size_x - 1 - finish[0] - x) ** alpha + (size_y - abs(finish[1] - y)) ** alpha) ** beta
+            # (abs(size_x - 1 - finish[0] - x) ** alpha + abs(size_y - 1 - finish[1] - y) ** alpha) ** beta
+        )
 
 
 def start_point_generate():
@@ -172,9 +180,9 @@ class App(Tk):
         sidebar.pack(side=LEFT, fill=Y)
 
         # Labyrinth
-        self.v_walls = []
-        self.h_walls = []
-        self.nodes = []
+        self.v_walls = None
+        self.h_walls = None
+        self.nodes = None
         self.reset_maze()
 
         # Canvas
@@ -190,54 +198,122 @@ class App(Tk):
         v_walls = [[True for _ in range(size_y)] for _ in range(size_x + 1)]
         h_walls = [[True for _ in range(size_y + 1)] for _ in range(size_x)]
 
-        if self.topology.get() == 'ℝ²':
-            # Recursive backtracking algorithm to generate the maze
-            def backtrack(x, y):
-                visited[x][y] = True
-                directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
-                random.shuffle(directions)
-                for dx, dy in directions:
-                    nx, ny = x + dx, y + dy
-                    if 0 <= nx < size_x and 0 <= ny < size_y and not visited[nx][ny]:
-                        if dx == 0:
-                            h_walls[x][min(y, ny) + 1] = False
-                        else:
-                            v_walls[min(x, nx) + 1][y] = False
-                        backtrack(nx, ny)
-
-        elif self.topology.get() == 'T²':
-            # Recursive backtracking algorithm to generate the maze
-            def backtrack(x, y):
-                visited[x % size_x][y % size_y] = True
-                directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
-                random.shuffle(directions)
-                for dx, dy in directions:
-                    nx, ny = x + dx, y + dy
-                    if not visited[nx % size_x][ny % size_y]:  # 0 <= nx < size_x and 0 <= ny < size_y
-                        if dx == 0:
-                            if ny == size_y or ny == -1:
-                                h_walls[x][0] = h_walls[x][-1] = False
-                            else:
+        def backtrack(x, y):
+            visited[(x, y)] = True
+            directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
+            random.shuffle(directions)
+            for dx, dy in directions:
+                nx, ny = x + dx, y + dy
+                match self.topology.get():
+                    case 'ℝ²':
+                        if 0 <= nx < size_x and 0 <= ny < size_y and not visited[(nx, ny)]:
+                            if dx == 0:
                                 h_walls[x][min(y, ny) + 1] = False
-                        else:
-                            if nx == size_x or nx == -1:
-                                v_walls[0][y] = v_walls[-1][y] = False
                             else:
                                 v_walls[min(x, nx) + 1][y] = False
-                        backtrack(nx % size_x, ny % size_y)
-        elif self.topology.get() == 'S²':
-            pass
-        elif self.topology.get() == 'ℝ¹×S¹':
-            pass
-        elif self.topology.get() == 'M²':
-            pass
-        elif self.topology.get() == 'K²':
-            pass
-        elif self.topology.get() == 'ℝP²':
-            pass
+                            backtrack(*visited.get_true_index((nx, ny)))
+                    case 'T²':
+                        if not visited[(nx, ny)]:
+                            if dx == 0:
+                                if ny == size_y or ny == -1:
+                                    h_walls[x][0] = h_walls[x][-1] = False
+                                else:
+                                    h_walls[x][min(y, ny) + 1] = False
+                            else:
+                                if nx == size_x or nx == -1:
+                                    v_walls[0][y] = v_walls[-1][y] = False
+                                else:
+                                    v_walls[min(x, nx) + 1][y] = False
+                            backtrack(*visited.get_true_index((nx, ny)))
+                    case 'S²':
+                        if not visited[(nx, ny)]:
+                            if dx == 0:
+                                if ny == -1:
+                                    h_walls[x][0] = v_walls[0][x] = False
+                                elif ny == size_y:
+                                    h_walls[x][-1] = v_walls[-1][x] = False
+                                else:
+                                    h_walls[x][min(y, ny) + 1] = False
+                            else:
+                                if nx == -1:
+                                    h_walls[0][y] = v_walls[y][0] = False
+                                elif nx == size_x:
+                                    h_walls[-1][y] = v_walls[y][-1] = False
+                                else:
+                                    v_walls[min(x, nx) + 1][y] = False
+                            backtrack(*visited.get_true_index((nx, ny)))
+                    case 'ℝ¹×S¹':
+                        if 0 <= ny < size_y and not visited[(nx, ny)]:
+                            if dx == 0:
+                                h_walls[x][min(y, ny) + 1] = False
+                            else:
+                                if nx == size_x or nx == -1:
+                                    v_walls[0][y] = v_walls[-1][y] = False
+                                else:
+                                    v_walls[min(x, nx) + 1][y] = False
+                            backtrack(*visited.get_true_index((nx, ny)))
+                    case 'M²':
+                        if 0 <= ny < size_y and not visited[(nx, ny)]:
+                            if dx == 0:
+                                h_walls[x][min(y, ny) + 1] = False
+                            else:
+                                if nx == -1:
+                                    v_walls[0][y] = v_walls[-1][size_y - 1 - y] = False
+                                elif nx == size_x:
+                                    v_walls[-1][y] = v_walls[0][size_y - 1 - y] = False
+                                else:
+                                    v_walls[min(x, nx) + 1][y] = False
+                            backtrack(*visited.get_true_index((nx, ny)))
+                    case 'K²':
+                        if not visited[(nx, ny)]:
+                            if dx == 0:
+                                if ny == size_y or ny == -1:
+                                    h_walls[x][0] = h_walls[x][-1] = False
+                                else:
+                                    h_walls[x][min(y, ny) + 1] = False
+                            else:
+                                if nx == -1:
+                                    v_walls[0][y] = v_walls[-1][size_y - 1 - y] = False
+                                elif nx == size_x:
+                                    v_walls[-1][y] = v_walls[0][size_y - 1 - y] = False
+                                else:
+                                    v_walls[min(x, nx) + 1][y] = False
+                            backtrack(*visited.get_true_index((nx, ny)))
+                    case 'ℝP²':
+                        if not visited[(nx, ny)]:
+                            if dx == 0:
+                                if ny == -1:
+                                    h_walls[x][0] = h_walls[size_x - 1 - x][-1] = False
+                                elif ny == size_y:
+                                    h_walls[x][-1] = h_walls[size_x - 1 - x][0] = False
+                                else:
+                                    h_walls[x][min(y, ny) + 1] = False
+                            else:
+                                if nx == -1:
+                                    v_walls[0][y] = v_walls[-1][size_y - 1 - y] = False
+                                elif nx == size_x:
+                                    v_walls[-1][y] = v_walls[0][size_y - 1 - y] = False
+                                else:
+                                    v_walls[min(x, nx) + 1][y] = False
+                            backtrack(*visited.get_true_index((nx, ny)))
 
         # Initialize visited array for recursive backtracking algorithm
-        visited = [[False for _ in range(size_y)] for _ in range(size_x)]
+        matrix = [[False for _ in range(size_y)] for _ in range(size_x)]
+        match self.topology.get():
+            case 'ℝ²':
+                visited = PlaneMatrix(matrix)
+            case 'T²':
+                visited = ToroidalMatrix(matrix)
+            case 'S²':
+                visited = SphericalMatrix(matrix)
+            case 'ℝ¹×S¹':
+                visited = CylindricalMatrix(matrix)
+            case 'M²':
+                visited = MobiusBandMatrix(matrix)
+            case 'K²':
+                visited = KleinBottleMatrix(matrix)
+            case 'ℝP²':
+                visited = ProjectivePlaneMatrix(matrix)
         backtrack(0, 0)
 
         self.v_walls = v_walls
@@ -335,6 +411,8 @@ class App(Tk):
             raise Exception("WrongStartCoordinates")
         if not (0 <= finish[0] < size_x and 0 <= finish[1] < size_y):
             raise Exception("WrongFinishCoordinates")
+        self.soft_reset()
+        self.update_canvas()
 
     def save_maze(self):
         try:
@@ -348,8 +426,7 @@ class App(Tk):
             pass
 
     def next_node(self):
-        temp = [min(i, key=lambda n: (n.f() if not n.visited else inf)) for i in self.nodes]
-        return min(temp, key=lambda n: (n.f() if not n.visited else inf))
+        return min(self.nodes, key=lambda n: (n.f() if not n.visited else inf))
 
     def update_canvas(self):
         self.canvas.delete(ALL)
@@ -368,23 +445,23 @@ class App(Tk):
             for j in range(size_y):
                 if i == start[0] and j == start[1]:
                     col = 'red'
-                elif (i == finish[0] and j == finish[1]) or self.nodes[i][j].path:
+                elif (i == finish[0] and j == finish[1]) or self.nodes[(i, j)].path:
                     col = 'lightgreen'
-                elif self.nodes[i][j].g == inf:
+                elif self.nodes[(i, j)].g == inf:
                     col = 'white'
-                elif self.nodes[i][j].visited:
+                elif self.nodes[(i, j)].visited:
                     col = 'yellow'
                 else:
                     col = 'orange'
-                if self.nodes[i][j].current:
+                if self.nodes[(i, j)].current:
                     col = 'red'
                 x0 = wall_px + i * (wall_px + box_px) + wall_px / 2
                 y0 = wall_px + j * (wall_px + box_px) + wall_px / 2
                 x1 = (i + 1) * (wall_px + box_px) + wall_px + wall_px / 2
                 y1 = (j + 1) * (wall_px + box_px) + wall_px + wall_px / 2
                 self.canvas.create_rectangle(x0, y0, x1, y1, fill=col, outline='lightgray')
-                if weights and self.nodes[i][j].f() != float('inf'):
-                    self.canvas.create_text(x0 + 4, y0 + 5, text='{:.4}'.format(str(self.nodes[i][j].f())),
+                if weights and self.nodes[(i, j)].f() != float('inf'):
+                    self.canvas.create_text(x0 + 4, y0 + 5, text='{:.4}'.format(str(self.nodes[(i, j)].f())),
                                             anchor=NW, font='Arial 10 bold', fill='black')
 
         # Print vertical walls
@@ -422,9 +499,25 @@ class App(Tk):
         algorithm = self.algorithm.get()
         topology = self.topology.get()
         # h_mul = self.h_mul.get()
-        self.nodes = CircularList([CircularList([Node(i, j, topology=topology, algorithm=algorithm, h_func=h_func)
-                                                 for j in range(size_y)]) for i in range(size_x)])
-        self.nodes[start[0]][start[1]].g = 0
+        nodes = [[Node(i, j, topology=topology, algorithm=algorithm, h_func=h_func)
+                  for j in range(size_y)] for i in range(size_x)]
+        match topology:
+            case 'ℝ²':
+                self.nodes = PlaneMatrix(nodes)
+            case 'T²':
+                self.nodes = ToroidalMatrix(nodes)
+            case 'S²':
+                self.nodes = SphericalMatrix(nodes)
+            case 'ℝ¹×S¹':
+                self.nodes = CylindricalMatrix(nodes)
+            case 'M²':
+                self.nodes = MobiusBandMatrix(nodes)
+            case 'K²':
+                self.nodes = KleinBottleMatrix(nodes)
+            case 'ℝP²':
+                self.nodes = ProjectivePlaneMatrix(nodes)
+
+        self.nodes[start].g = 0
 
     def run_algorithm(self):
         self.soft_reset()
@@ -439,28 +532,29 @@ class App(Tk):
                 # print(cur)
                 cur.visited = True
                 # Calculate Top
-                if not ((cur.y == 0 and self.topology.get() == 'ℝ²') or self.h_walls[cur.x][cur.y]):
-                    if self.nodes[cur.x][cur.y - 1].g > cur.g + 1:
-                        self.nodes[cur.x][cur.y - 1].g = cur.g + 1
-                        self.nodes[cur.x][cur.y - 1].prev = cur
+                if not ((cur.y == 0 and self.topology.get() in ['ℝ²', 'ℝ¹×S¹', 'M²']) or self.h_walls[cur.x][cur.y]):
+                    if self.nodes[(cur.x, cur.y - 1)].g > cur.g + 1:
+                        self.nodes[(cur.x, cur.y - 1)].g = cur.g + 1
+                        self.nodes[(cur.x, cur.y - 1)].prev = cur
 
                 # Calculate Bottom
-                if not ((cur.y == size_y - 1 and self.topology.get() == 'ℝ²') or self.h_walls[cur.x][cur.y + 1]):
-                    if self.nodes[cur.x][cur.y + 1].g > cur.g + 1:
-                        self.nodes[cur.x][cur.y + 1].g = cur.g + 1
-                        self.nodes[cur.x][cur.y + 1].prev = cur
+                if not ((cur.y == size_y - 1 and self.topology.get() in ['ℝ²', 'ℝ¹×S¹', 'M²'])
+                        or self.h_walls[cur.x][cur.y + 1]):
+                    if self.nodes[(cur.x, cur.y + 1)].g > cur.g + 1:
+                        self.nodes[(cur.x, cur.y + 1)].g = cur.g + 1
+                        self.nodes[(cur.x, cur.y + 1)].prev = cur
 
                 # Calculate Left
                 if not ((cur.x == 0 and self.topology.get() == 'ℝ²') or self.v_walls[cur.x][cur.y]):
-                    if self.nodes[cur.x - 1][cur.y].g > cur.g + 1:
-                        self.nodes[cur.x - 1][cur.y].g = cur.g + 1
-                        self.nodes[cur.x - 1][cur.y].prev = cur
+                    if self.nodes[(cur.x - 1, cur.y)].g > cur.g + 1:
+                        self.nodes[(cur.x - 1, cur.y)].g = cur.g + 1
+                        self.nodes[(cur.x - 1, cur.y)].prev = cur
 
                 # Calculate Right
                 if not ((cur.x == size_x - 1 and self.topology.get() == 'ℝ²') or self.v_walls[cur.x + 1][cur.y]):
-                    if self.nodes[cur.x + 1][cur.y].g > cur.g + 1:
-                        self.nodes[cur.x + 1][cur.y].g = cur.g + 1
-                        self.nodes[cur.x + 1][cur.y].prev = cur
+                    if self.nodes[(cur.x + 1, cur.y)].g > cur.g + 1:
+                        self.nodes[(cur.x + 1, cur.y)].g = cur.g + 1
+                        self.nodes[(cur.x + 1, cur.y)].prev = cur
 
                 cur.current = False
                 cur = self.next_node()
@@ -470,7 +564,7 @@ class App(Tk):
                     while cur.g != 0:
                         cur.path = True
                         cur = cur.prev
-                    # print(sum([1 if self.nodes[i][j].visited else 0 for i in range(size_x) for j in range(size_y)]))
+                    # print(sum([1 if self.nodes[(i, j)].visited else 0 for i in range(size_x) for j in range(size_y)]))
 
             # ======================================================
 
