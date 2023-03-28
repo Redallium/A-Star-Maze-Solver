@@ -1,6 +1,6 @@
 import random
 import json
-from DataStructures import PlaneMatrix, ToroidalMatrix, CylindricalMatrix, SphericalMatrix, MobiusBandMatrix, \
+from MazeDataStructures import PlaneMatrix, ToroidalMatrix, CylindricalMatrix, SphericalMatrix, MobiusBandMatrix, \
     KleinBottleMatrix, ProjectivePlaneMatrix
 # import sys
 
@@ -100,40 +100,40 @@ class Chromosome:
 
 def general_heuristic_function(x, y, f_topology, f_chromosome, f_finish):
     alpha, beta, gamma = f_chromosome.alpha, f_chromosome.beta, f_chromosome.gamma
+    fx, fy = f_finish[0], f_finish[1]
     if f_topology == 'ℝ²':
-        return gamma * ((abs(f_finish[0] - x) ** alpha + abs(f_finish[1] - y) ** alpha) ** beta)
+        return gamma * ((abs(fx - x) ** alpha + abs(fy - y) ** alpha) ** beta)
     elif f_topology == 'T²':
-        return gamma * (((min(abs(f_finish[0] - x), size_x - abs(f_finish[0] - x))) ** alpha +
-                         (min(abs(f_finish[1] - y), size_y - abs(f_finish[1] - y))) ** alpha) ** beta)
+        return gamma * (((min(abs(fx - x), size_x - abs(fx - x))) ** alpha +
+                         (min(abs(fy - y), size_y - abs(fy - y))) ** alpha) ** beta)
     elif f_topology == 'S²':
         return gamma * min(
-            (abs(f_finish[0] - x) ** alpha + abs(f_finish[1] - y) ** alpha) ** beta,
-            (abs(f_finish[1] - x) ** alpha + (f_finish[0] + y) ** alpha) ** beta,
-            (abs(f_finish[0] - y) ** alpha + (f_finish[1] + x) ** alpha) ** beta,
-            ((2 * size_x - 1 - f_finish[0] - y) ** alpha + abs(f_finish[1] - x) ** alpha) ** beta,
-            ((2 * size_y - 1 - f_finish[1] - x) ** alpha + abs(f_finish[0] - y) ** alpha) ** beta
+            (abs(fx - x) ** alpha + abs(fy - y) ** alpha) ** beta,
+            (abs(fy - x) ** alpha + (fx + y) ** alpha) ** beta,
+            (abs(fx - y) ** alpha + (fy + x) ** alpha) ** beta,
+            ((2 * size_x - 1 - fx - y) ** alpha + abs(fy - x) ** alpha) ** beta,
+            ((2 * size_y - 1 - fy - x) ** alpha + abs(fx - y) ** alpha) ** beta
         )
     elif f_topology == 'ℝ¹×S¹':
-        return gamma * (((min(abs(f_finish[0] - x), size_x - abs(f_finish[0] - x))) ** alpha +
-                         abs(f_finish[1] - y) ** alpha) ** beta)
+        return gamma * (((min(abs(fx - x), size_x - abs(fx - x))) ** alpha + abs(fy - y) ** alpha) ** beta)
     elif f_topology == 'M²':
         return gamma * min(
-            (abs(f_finish[0] - x) ** alpha + abs(f_finish[1] - y) ** alpha) ** beta,
-            ((size_x - abs(f_finish[0] - x)) ** alpha + abs(size_y - 1 - f_finish[1] - y) ** alpha) ** beta
+            (abs(fx - x) ** alpha + abs(fy - y) ** alpha) ** beta,
+            ((size_x - abs(fx - x)) ** alpha + abs(size_y - 1 - fy - y) ** alpha) ** beta
         )
     elif f_topology == 'K²':
         return gamma * min(
-            (abs(f_finish[0] - x) ** alpha + abs(f_finish[1] - y) ** alpha) ** beta,
-            ((size_x - abs(f_finish[0] - x)) ** alpha + abs(size_y - 1 - f_finish[1] - y) ** alpha) ** beta,
-            (abs(f_finish[0] - x) ** alpha + (min(abs(f_finish[1] - y), size_y - abs(f_finish[1] - y))) ** alpha) ** beta
+            (abs(fx - x) ** alpha + abs(fy - y) ** alpha) ** beta,
+            ((size_x - abs(fx - x)) ** alpha + abs(size_y - 1 - fy - y) ** alpha) ** beta,
+            (abs(fx - x) ** alpha + (min(abs(fy - y), size_y - abs(fy - y))) ** alpha) ** beta
 
         )
     elif f_topology == 'ℝP²':
         return gamma * min(
-            (abs(f_finish[0] - x) ** alpha + abs(f_finish[1] - y) ** alpha) ** beta,
-            ((size_x - abs(f_finish[0] - x)) ** alpha + abs(size_y - 1 - f_finish[1] - y) ** alpha) ** beta,
-            (abs(size_x - 1 - f_finish[0] - x) ** alpha + (size_y - abs(f_finish[1] - y)) ** alpha) ** beta
-            # (abs(size_x - 1 - finish[0] - x) ** alpha + abs(size_y - 1 - finish[1] - y) ** alpha) ** beta
+            (abs(fx - x) ** alpha + abs(fy - y) ** alpha) ** beta,
+            ((size_x - abs(fx - x)) ** alpha + abs(size_y - 1 - fy - y) ** alpha) ** beta,
+            (abs(size_x - 1 - fx - x) ** alpha + (size_y - abs(fy - y)) ** alpha) ** beta
+            # (abs(size_x - 1 - fx - x) ** alpha + abs(size_y - 1 - fy - y) ** alpha) ** beta
         )
 
 
@@ -165,7 +165,7 @@ class Solution:
         self.checked = float('inf')
         nodes = [[Node(f_i, f_j, f_topology=topology, f_chromosome=self.chromosome, f_finish=self.finish)
                   for f_j in range(size_y)] for f_i in range(size_x)]
-        match topology:
+        match self.topology:
             case 'ℝ²':
                 self.nodes = PlaneMatrix(nodes)
             case 'T²':
@@ -234,7 +234,9 @@ def form_first_generation(n=64):
     f_generation.append(Chromosome(alpha=1, beta=1, gamma=1))  # manhattan
     f_generation.append(Chromosome(alpha=2, beta=0.5, gamma=1))  # euclidean
     f_generation.append(Chromosome(alpha=2, beta=1, gamma=1))  # squared euqlidean
-    for _ in range(n - 3):
+    f_generation.append(Chromosome(alpha=2, beta=1.5, gamma=1))  # cubic euqlidean
+    f_generation.append(Chromosome(alpha=1.5, beta=1.5, gamma=2))  # own candidate
+    for _ in range(n - 5):
         alpha = round(random.randint(5, 30) / 10, 1)
         beta = round(random.randint(5, 30) / 10, 1)
         gamma = round(random.randint(1, 50) / 10, 1)
@@ -271,13 +273,15 @@ def save_maze(f_v_walls, f_h_walls, f_start, f_finish, filename):
 
 
 if __name__ == '__main__':
-    N = 64
-    EPOCH = 20
-    MAZE = 50
+    N = 32
+    EPOCH = 10
+    MAZE = 100
     # topology = 'ℝ²'
     # topology = 'T²'
-    topology = 'ℝP²'
-    avg_manhattan, avg_euclidean, avg_squared_euclidean, avg_custom = [], [], [], []
+    # topology = 'ℝP²'
+    topology = 'M²'
+    avg_manhattan, avg_euclidean, avg_squared_euclidean, avg_custom, avg_cubic_euclidean, own_candidate = [], [], [], \
+        [], [], []
     for maze in range(1, MAZE + 1):
         print(f'maze #{maze}:', flush=True)
         v_walls, h_walls, start, finish = generate_maze()
@@ -296,6 +300,12 @@ if __name__ == '__main__':
             elif i == 2:
                 print(f'Squared Euclidean: {chromosome}', flush=True)
                 avg_squared_euclidean.append(chromosome.estimation)
+            elif i == 3:
+                print(f'Cubic Euclidean: {chromosome}', flush=True)
+                avg_cubic_euclidean.append(chromosome.estimation)
+            elif i == 4:
+                print(f'({chromosome.alpha}, {chromosome.beta}, {chromosome.gamma}): {chromosome}', flush=True)
+                own_candidate.append(chromosome.estimation)
         print(f'epoch #0: {min(generation, key=lambda c: c.estimation)}', flush=True)
         for epoch in range(1, EPOCH + 1):
             generation = form_next_generation(generation)
@@ -311,6 +321,8 @@ if __name__ == '__main__':
     print(f'Average Manhattan Estimation: {round(sum(avg_manhattan) / len(avg_manhattan))}')
     print(f'Average Euclidean Estimation: {round(sum(avg_euclidean) / len(avg_euclidean))}')
     print(f'Average Squared Euclidean Estimation: {round(sum(avg_squared_euclidean) / len(avg_squared_euclidean))}')
+    print(f'Average Cubic Euclidean Estimation: {round(sum(avg_cubic_euclidean) / len(avg_cubic_euclidean))}')
+    print(f'Average Own Candidate Estimation: {round(sum(own_candidate) / len(own_candidate))}')
     print(f'Average Custom Estimation: {round(sum([c.estimation for c in avg_custom]) / len(avg_custom))}')
     print(f'Average Custom Alpha: {round(sum([c.alpha for c in avg_custom]) / len(avg_custom), 1)}')
     print(f'Average Custom Beta: {round(sum([c.beta for c in avg_custom]) / len(avg_custom), 1)}')

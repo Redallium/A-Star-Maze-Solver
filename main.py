@@ -3,7 +3,7 @@ from tkinter.ttk import OptionMenu
 from tkinter.filedialog import asksaveasfilename, askopenfile
 import random
 import json
-from DataStructures import PlaneMatrix, ToroidalMatrix, CylindricalMatrix, SphericalMatrix, MobiusBandMatrix, \
+from MazeDataStructures import PlaneMatrix, ToroidalMatrix, CylindricalMatrix, SphericalMatrix, MobiusBandMatrix, \
     KleinBottleMatrix, ProjectivePlaneMatrix
 
 
@@ -23,40 +23,39 @@ inf = float('inf')
 
 def general_heuristic_function(x, y, topology='ℝ²', heuristic_chromosome=(1, 1, 1)):
     alpha, beta, gamma = heuristic_chromosome
+    fx, fy = finish[0], finish[1]
     if topology == 'ℝ²':
-        return gamma * ((abs(finish[0] - x) ** alpha + abs(finish[1] - y) ** alpha) ** beta)
+        return gamma * ((abs(fx - x) ** alpha + abs(fy - y) ** alpha) ** beta)
     elif topology == 'T²':
-        return gamma * (((min(abs(finish[0] - x), size_x - abs(finish[0] - x))) ** alpha +
-                         (min(abs(finish[1] - y), size_y - abs(finish[1] - y))) ** alpha) ** beta)
+        return gamma * (((min(abs(fx - x), size_x - abs(fx - x))) ** alpha +
+                         (min(abs(fy - y), size_y - abs(fy - y))) ** alpha) ** beta)
     elif topology == 'S²':
         return gamma * min(
-            (abs(finish[0] - x) ** alpha + abs(finish[1] - y) ** alpha) ** beta,
-            (abs(finish[1] - x) ** alpha + (finish[0] + y) ** alpha) ** beta,
-            (abs(finish[0] - y) ** alpha + (finish[1] + x) ** alpha) ** beta,
-            ((2 * size_x - 1 - finish[0] - y) ** alpha + abs(finish[1] - x) ** alpha) ** beta,
-            ((2 * size_y - 1 - finish[1] - x) ** alpha + abs(finish[0] - y) ** alpha) ** beta
+            (abs(fx - x) ** alpha + abs(fy - y) ** alpha) ** beta,
+            (abs(fy - x) ** alpha + (fx + y) ** alpha) ** beta,
+            (abs(fx - y) ** alpha + (fy + x) ** alpha) ** beta,
+            ((2 * size_x - 1 - fx - y) ** alpha + abs(fy - x) ** alpha) ** beta,
+            ((2 * size_y - 1 - fy - x) ** alpha + abs(fx - y) ** alpha) ** beta
         )
     elif topology == 'ℝ¹×S¹':
-        return gamma * (((min(abs(finish[0] - x), size_x - abs(finish[0] - x))) ** alpha +
-                         abs(finish[1] - y) ** alpha) ** beta)
+        return gamma * (((min(abs(fx - x), size_x - abs(fx - x))) ** alpha + abs(fy - y) ** alpha) ** beta)
     elif topology == 'M²':
         return gamma * min(
-            (abs(finish[0] - x) ** alpha + abs(finish[1] - y) ** alpha) ** beta,
-            ((size_x - abs(finish[0] - x)) ** alpha + abs(size_y - 1 - finish[1] - y) ** alpha) ** beta
+            (abs(fx - x) ** alpha + abs(fy - y) ** alpha) ** beta,
+            ((size_x - abs(fx - x)) ** alpha + abs(size_y - 1 - fy - y) ** alpha) ** beta
         )
     elif topology == 'K²':
         return gamma * min(
-            (abs(finish[0] - x) ** alpha + abs(finish[1] - y) ** alpha) ** beta,
-            ((size_x - abs(finish[0] - x)) ** alpha + abs(size_y - 1 - finish[1] - y) ** alpha) ** beta,
-            (abs(finish[0] - x) ** alpha + (min(abs(finish[1] - y), size_y - abs(finish[1] - y))) ** alpha) ** beta
+            (abs(fx - x) ** alpha + abs(fy - y) ** alpha) ** beta,
+            ((size_x - abs(fx - x)) ** alpha + abs(size_y - 1 - fy - y) ** alpha) ** beta,
+            (abs(fx - x) ** alpha + (min(abs(fy - y), size_y - abs(fy - y))) ** alpha) ** beta
 
         )
     elif topology == 'ℝP²':
         return gamma * min(
-            (abs(finish[0] - x) ** alpha + abs(finish[1] - y) ** alpha) ** beta,
-            ((size_x - abs(finish[0] - x)) ** alpha + abs(size_y - 1 - finish[1] - y) ** alpha) ** beta,
-            (abs(size_x - 1 - finish[0] - x) ** alpha + (size_y - abs(finish[1] - y)) ** alpha) ** beta
-            # (abs(size_x - 1 - finish[0] - x) ** alpha + abs(size_y - 1 - finish[1] - y) ** alpha) ** beta
+            (abs(fx - x) ** alpha + abs(fy - y) ** alpha) ** beta,
+            ((size_x - abs(fx - x)) ** alpha + abs(size_y - 1 - fy - y) ** alpha) ** beta,
+            (abs(size_x - 1 - fx - x) ** alpha + (size_y - abs(fy - y)) ** alpha) ** beta
         )
 
 
@@ -141,12 +140,14 @@ class App(Tk):
 
         self.algorithm = StringVar()
         self.algorithm.set('A*')
-        OptionMenu(sidebar, self.algorithm, 'A*', *['A*', 'Dijkstra']).pack(side=TOP, padx=10, pady=10)
+        OptionMenu(sidebar, self.algorithm, 'A*', *['A*', 'Dijkstra'],
+                   command=self.update_options).pack(side=TOP, padx=10, pady=10)
 
         self.h_func = StringVar()
         self.h_func.set('manhattan')
-        OptionMenu(sidebar, self.h_func, 'manhattan', *['manhattan', 'euclidean', 'squared_euclidean', 'custom']).pack(
-            side=TOP, padx=10, pady=10)
+        self.heuristic_option_menu = OptionMenu(sidebar, self.h_func, 'manhattan',
+                                                *['manhattan', 'euclidean', 'squared_euclidean', 'custom'])
+        self.heuristic_option_menu.pack(side=TOP, padx=10, pady=10)
 
         Button(sidebar, text='Generate Maze', command=self.generate_maze, height=2, font=25).pack(side=TOP, padx=10,
                                                                                                   pady=10)
@@ -163,19 +164,6 @@ class App(Tk):
         self.display_weights = BooleanVar()
         self.display_weights.set(False)
         Checkbutton(sidebar, text='Display Weights', variable=self.display_weights).pack(side=TOP, padx=10, pady=10)
-
-        # multiplier = Frame(sidebar)
-        # Label(multiplier, text='h Function multiplier').pack(side=TOP, padx=10, pady=2)
-        # radio = Frame(multiplier)
-        # self.h_mul = DoubleVar()
-        # self.h_mul.set(1)
-        # Radiobutton(radio, text='1/4', variable=self.h_mul, value=0.25).pack(side=LEFT, padx=2, pady=5)
-        # Radiobutton(radio, text='1/2', variable=self.h_mul, value=0.5).pack(side=LEFT, padx=2, pady=5)
-        # Radiobutton(radio, text='1', variable=self.h_mul, value=1).pack(side=LEFT, padx=2, pady=5)
-        # Radiobutton(radio, text='3', variable=self.h_mul, value=3).pack(side=LEFT, padx=2, pady=5)
-        # Radiobutton(radio, text='15', variable=self.h_mul, value=15).pack(side=LEFT, padx=2, pady=5)
-        # radio.pack(side=TOP, padx=2, pady=2)
-        # multiplier.pack(side=TOP, padx=10, pady=10)
 
         sidebar.pack(side=LEFT, fill=Y)
 
@@ -194,10 +182,45 @@ class App(Tk):
         self.RUNNING = True
         self.ALGORITHM = False
 
-    def generate_maze(self):
-        v_walls = [[True for _ in range(size_y)] for _ in range(size_x + 1)]
-        h_walls = [[True for _ in range(size_y + 1)] for _ in range(size_x)]
+    def update_options(self, choice):
+        if choice != 'A*':
+            self.heuristic_option_menu.configure(state="disabled")
+        else:
+            self.heuristic_option_menu.configure(state="enabled")
 
+    def count_components(self, matrix):
+        if not matrix:
+            return 0
+
+        adjacency_list = {(i, j): [] for j in range(size_y) for i in range(size_x)}
+
+        for i in range(size_x):
+            for j in range(size_y):
+                up, down, left, right = (i, j - 1), (i, j + 1), (i - 1, j), (i + 1, j)
+                if not self.h_walls[i][j]:
+                    adjacency_list[(i, j)].append(matrix.get_true_index(up))
+                if not self.h_walls[i][j + 1]:
+                    adjacency_list[(i, j)].append(matrix.get_true_index(down))
+                if not self.v_walls[i][j]:
+                    adjacency_list[(i, j)].append(matrix.get_true_index(left))
+                if not self.v_walls[i + 1][j]:
+                    adjacency_list[(i, j)].append(matrix.get_true_index(right))
+
+        def dfs(f_node):
+            visited.add(f_node)
+            for neighbor in adjacency_list[f_node]:
+                if neighbor not in visited:
+                    dfs(neighbor)
+
+        visited = set()
+        num_components = 0
+        for node in adjacency_list:
+            if node not in visited:
+                num_components += 1
+                dfs(node)
+        return num_components
+
+    def generate_maze(self):
         def backtrack(x, y):
             visited[(x, y)] = True
             directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
@@ -297,27 +320,33 @@ class App(Tk):
                                     v_walls[min(x, nx) + 1][y] = False
                             backtrack(*visited.get_true_index((nx, ny)))
 
-        # Initialize visited array for recursive backtracking algorithm
-        matrix = [[False for _ in range(size_y)] for _ in range(size_x)]
-        match self.topology.get():
-            case 'ℝ²':
-                visited = PlaneMatrix(matrix)
-            case 'T²':
-                visited = ToroidalMatrix(matrix)
-            case 'S²':
-                visited = SphericalMatrix(matrix)
-            case 'ℝ¹×S¹':
-                visited = CylindricalMatrix(matrix)
-            case 'M²':
-                visited = MobiusBandMatrix(matrix)
-            case 'K²':
-                visited = KleinBottleMatrix(matrix)
-            case 'ℝP²':
-                visited = ProjectivePlaneMatrix(matrix)
-        backtrack(0, 0)
+        visited = None
+        while self.count_components(visited) != 1:
+            matrix = [[False for _ in range(size_y)] for _ in range(size_x)]
 
-        self.v_walls = v_walls
-        self.h_walls = h_walls
+            match self.topology.get():
+                case 'ℝ²':
+                    visited = PlaneMatrix(matrix)
+                case 'T²':
+                    visited = ToroidalMatrix(matrix)
+                case 'S²':
+                    visited = SphericalMatrix(matrix)
+                case 'ℝ¹×S¹':
+                    visited = CylindricalMatrix(matrix)
+                case 'M²':
+                    visited = MobiusBandMatrix(matrix)
+                case 'K²':
+                    visited = KleinBottleMatrix(matrix)
+                case 'ℝP²':
+                    visited = ProjectivePlaneMatrix(matrix)
+
+            v_walls = [[True for _ in range(size_y)] for _ in range(size_x + 1)]
+            h_walls = [[True for _ in range(size_y + 1)] for _ in range(size_x)]
+
+            backtrack(0, 0)
+
+            self.v_walls = v_walls
+            self.h_walls = h_walls
 
         global start
         start = start_point_generate()
@@ -330,33 +359,10 @@ class App(Tk):
         self.update()
 
     def generate_walls(self):
-        # num_obstacles = size_x * size_y // 3
-
-        # v_walls = [[True for j in range(size_y)] for i in range(size_x - 1)]
-        # h_walls = [[True for j in range(size_y - 1)] for i in range(size_x)]
-
-        # obstacles = [[False for j in range(size_y)] for i in range(size_x)]
-        # for i in range(num_obstacles):
-        #     x, y = random.randint(0, size_x-1), random.randint(0, size_y-1)
-        #     obstacles[x][y] = True
-
-        # for i in range(size_x - 1):
-        #     for j in range(size_y):
-        #         if obstacles[i][j] or obstacles[i+1][j]:
-        #             v_walls[i][j] = True
-        #         else:
-        #             v_walls[i][j] = False
-
-        # for i in range(size_x):
-        #     for j in range(size_y - 1):
-        #         if obstacles[i][j] or obstacles[i][j+1]:
-        #             h_walls[i][j] = True
-        #         else:
-        #             h_walls[i][j] = False
         num_obstacle_clusters, cluster_size_min, cluster_size_max = 16, 2, 5
         # Create empty walls
-        v_walls = [[i == 0 or i == size_x for _ in range(size_y)] for i in range(size_x + 1)]
-        h_walls = [[i == 0 or i == size_y for i in range(size_y + 1)] for _ in range(size_x)]
+        v_walls = [[not i % size_x for _ in range(size_y)] for i in range(size_x + 1)]
+        h_walls = [[not i % size_y for i in range(size_y + 1)] for _ in range(size_x)]
         # Create obstacle clusters
         for i in range(num_obstacle_clusters):
             # Choose random cluster size
@@ -383,9 +389,14 @@ class App(Tk):
 
         global start
         start = start_point_generate()
-
+        while v_walls[start[0]][start[1]] and v_walls[start[0]+1][start[1]] and \
+                h_walls[start[0]][start[1]] and h_walls[start[0]][start[1]+1]:
+            start = start_point_generate()
         global finish
         finish = finish_point_generate()
+        while (v_walls[finish[0]][finish[1]] and v_walls[finish[0]+1][finish[1]] and
+               h_walls[finish[0]][finish[1]] and h_walls[finish[0]][finish[1]+1]) or start == finish:
+            finish = finish_point_generate()
 
         self.soft_reset()
         self.update_canvas()
@@ -490,8 +501,8 @@ class App(Tk):
         global finish
         finish = (size_x - 1, size_y - 1)
         self.soft_reset()
-        self.v_walls = [[i == 0 or i == size_x for _ in range(size_y)] for i in range(size_x + 1)]
-        self.h_walls = [[i == 0 or i == size_y for i in range(size_y + 1)] for _ in range(size_x)]
+        self.v_walls = [[not i % size_x for _ in range(size_y)] for i in range(size_x + 1)]
+        self.h_walls = [[not i % size_y for i in range(size_y + 1)] for _ in range(size_x)]
         self.ALGORITHM = False
 
     def soft_reset(self):
