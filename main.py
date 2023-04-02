@@ -157,8 +157,10 @@ class Node:
                 self.h = general_heuristic_function(self.x, self.y, self.topology, (2, 0.5, 1))
             if h_func == 'squared_euclidean':
                 self.h = general_heuristic_function(self.x, self.y, self.topology, (2, 1, 1))
+            if h_func == 'cubic_euclidean':
+                self.h = general_heuristic_function(self.x, self.y, self.topology, (2, 1.5, 1))
             if h_func == 'custom':
-                custom_chromosome = (2, 2, 2)
+                custom_chromosome = (1.7, 1.4, 1.6)
                 self.h = general_heuristic_function(self.x, self.y, self.topology, custom_chromosome)
         else:
             self.h = 0
@@ -199,7 +201,8 @@ class App(Tk):
         self.h_func = StringVar()
         self.h_func.set('manhattan')
         self.heuristic_option_menu = OptionMenu(sidebar, self.h_func, 'manhattan',
-                                                *['manhattan', 'euclidean', 'squared_euclidean', 'custom'])
+                                                *['manhattan', 'euclidean', 'squared_euclidean', 'cubic_euclidean',
+                                                  'custom'])
         self.heuristic_option_menu.pack(**pack_dict)
 
         # <Generate Maze> button
