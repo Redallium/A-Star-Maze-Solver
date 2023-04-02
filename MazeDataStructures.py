@@ -1,14 +1,27 @@
+# -------------------------------------------------------------------
+# Implementation of classes for storing maze nodes and correctly
+# accessing them for various topologies
+#
+# (C) 2023 Iavna Lev, Moscow, Russia
+# email iavna.le@phystech.edu
+# -------------------------------------------------------------------
+import typing
+
+Any = typing.Any
+
+
 class PlaneMatrix:
-    def __init__(self, data):
+    """A class for a maze on a two-dimensional plane"""
+    def __init__(self, data: list[list[Any]]):
         self.data = data
         self.len_x = len(data)
         self.len_y = len(data[0])
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: tuple[int, int]) -> Any:
         x, y = self.get_true_index(key)
         return self.data[x][y]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: tuple[int, int], value: Any) -> None:
         x, y = self.get_true_index(key)
         self.data[x][y] = value
 
@@ -17,7 +30,8 @@ class PlaneMatrix:
             for y in range(self.len_y):
                 yield self[(x, y)]
 
-    def get_true_index(self, key):
+    def get_true_index(self, key: tuple[int, int]) -> tuple[int, int]:
+        """By the input index of the element, it returns the correct index of the element for this topology"""
         x, y = key
         if not (0 <= x < self.len_x and 0 <= y < self.len_y):
             raise IndexError("Index out of range")
@@ -25,16 +39,17 @@ class PlaneMatrix:
 
 
 class ToroidalMatrix:
-    def __init__(self, data):
+    """A class for a maze on the surface of a two-dimensional torus"""
+    def __init__(self, data: list[list[Any]]):
         self.data = data
         self.len_x = len(data)
         self.len_y = len(data[0])
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: tuple[int, int]) -> Any:
         x, y = self.get_true_index(key)
         return self.data[x][y]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: tuple[int, int], value: Any) -> None:
         x, y = self.get_true_index(key)
         self.data[x][y] = value
 
@@ -43,22 +58,24 @@ class ToroidalMatrix:
             for y in range(self.len_y):
                 yield self[(x, y)]
 
-    def get_true_index(self, key):
+    def get_true_index(self, key: tuple[int, int]) -> tuple[int, int]:
+        """By the input index of the element, it returns the correct index of the element for this topology"""
         x, y = key
         return x % self.len_x, y % self.len_y
 
 
 class CylindricalMatrix:
-    def __init__(self, data):
+    """A class for a maze on the surface of a two-dimensional cylinder"""
+    def __init__(self, data: list[list[Any]]):
         self.data = data
         self.len_x = len(data)
         self.len_y = len(data[0])
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: tuple[int, int]) -> Any:
         x, y = self.get_true_index(key)
         return self.data[x][y]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: tuple[int, int], value: Any) -> None:
         x, y = self.get_true_index(key)
         self.data[x][y] = value
 
@@ -67,7 +84,8 @@ class CylindricalMatrix:
             for y in range(self.len_y):
                 yield self[(x, y)]
 
-    def get_true_index(self, key):
+    def get_true_index(self, key: tuple[int, int]) -> tuple[int, int]:
+        """By the input index of the element, it returns the correct index of the element for this topology"""
         x, y = key
         if not 0 <= y < self.len_y:
             raise IndexError("Index out of range")
@@ -75,16 +93,17 @@ class CylindricalMatrix:
 
 
 class SphericalMatrix:
-    def __init__(self, data):
+    """A class for a maze on the surface of a two-dimensional sphere"""
+    def __init__(self, data: list[list[Any]]):
         self.data = data
         self.len_x = len(data)  # len_x should be equal to len_y
         self.len_y = len(data[0])
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: tuple[int, int]) -> Any:
         x, y = self.get_true_index(key)
         return self.data[x][y]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: tuple[int, int], value: Any) -> None:
         x, y = self.get_true_index(key)
         self.data[x][y] = value
 
@@ -93,7 +112,8 @@ class SphericalMatrix:
             for y in range(self.len_y):
                 yield self[(x, y)]
 
-    def get_true_index(self, key):
+    def get_true_index(self, key: tuple[int, int]) -> tuple[int, int]:
+        """By the input index of the element, it returns the correct index of the element for this topology"""
         x, y = key
         if x == -1:
             return y, 0
@@ -108,16 +128,17 @@ class SphericalMatrix:
 
 
 class MobiusBandMatrix:
-    def __init__(self, data):
+    """A class for a maze on the surface of a two-dimensional Möbius band"""
+    def __init__(self, data: list[list[Any]]):
         self.data = data
         self.len_x = len(data)
         self.len_y = len(data[0])
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: tuple[int, int]) -> Any:
         x, y = self.get_true_index(key)
         return self.data[x][y]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: tuple[int, int], value: Any) -> None:
         x, y = self.get_true_index(key)
         self.data[x][y] = value
 
@@ -126,7 +147,8 @@ class MobiusBandMatrix:
             for y in range(self.len_y):
                 yield self[(x, y)]
 
-    def get_true_index(self, key):
+    def get_true_index(self, key: tuple[int, int]) -> tuple[int, int]:
+        """By the input index of the element, it returns the correct index of the element for this topology"""
         x, y = key
         if not 0 <= y < self.len_y:
             raise IndexError("Index out of range")
@@ -139,16 +161,17 @@ class MobiusBandMatrix:
 
 
 class KleinBottleMatrix:
-    def __init__(self, data):
+    """A class for a maze on the surface of a two-dimensional Klein bottle"""
+    def __init__(self, data: list[list[Any]]):
         self.data = data
         self.len_x = len(data)
         self.len_y = len(data[0])
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: tuple[int, int]) -> Any:
         x, y = self.get_true_index(key)
         return self.data[x][y]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: tuple[int, int], value: Any) -> None:
         x, y = self.get_true_index(key)
         self.data[x][y] = value
 
@@ -157,7 +180,8 @@ class KleinBottleMatrix:
             for y in range(self.len_y):
                 yield self[(x, y)]
 
-    def get_true_index(self, key):
+    def get_true_index(self, key: tuple[int, int]) -> tuple[int, int]:
+        """By the input index of the element, it returns the correct index of the element for this topology"""
         x, y = key
         if x == -1:
             return self.len_x - 1, self.len_y - 1 - y
@@ -168,16 +192,17 @@ class KleinBottleMatrix:
 
 
 class ProjectivePlaneMatrix:
-    def __init__(self, data):
+    """A class for a maze on the surface of a two-dimensional projective plane"""
+    def __init__(self, data: list[list[Any]]):
         self.data = data
         self.len_x = len(data)
         self.len_y = len(data[0])
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: tuple[int, int]) -> Any:
         x, y = self.get_true_index(key)
         return self.data[x][y]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: tuple[int, int], value: Any) -> None:
         x, y = self.get_true_index(key)
         self.data[x][y] = value
 
@@ -186,7 +211,8 @@ class ProjectivePlaneMatrix:
             for y in range(self.len_y):
                 yield self[(x, y)]
 
-    def get_true_index(self, key):
+    def get_true_index(self, key: tuple[int, int]) -> tuple[int, int]:
+        """By the input index of the element, it returns the correct index of the element for this topology"""
         x, y = key
         if x == -1:
             return self.len_x - 1, self.len_y - 1 - y
