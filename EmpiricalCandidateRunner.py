@@ -448,7 +448,6 @@ if __name__ == '__main__':
 
     # Initialization of a convenient dictionary of topologies and selection of the topology under study
     topology_list = {'R': 'ℝ²', 'S': 'S²', 'T': 'T²', 'C': 'ℝ¹×S¹', 'M': 'M²', 'K': 'K²', 'P': 'ℝP²'}
-    geometry = topology_list['P']
 
     for key, geometry in topology_list.items():
         # List for collecting statistics
